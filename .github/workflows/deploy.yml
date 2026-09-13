@@ -32,7 +32,7 @@ jobs:
       - name: Compile the C++ to WebAssembly
         run: |
           mkdir -p site
-          emcc fantasy-football.cpp -o site/index.html \
+          em++ fantasy-football.cpp -o site/index.html \
             --shell-file shell.html \
             -O2 \
             -sINVOKE_RUN=0 \
