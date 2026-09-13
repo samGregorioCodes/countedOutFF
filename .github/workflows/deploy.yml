@@ -1,0 +1,59 @@
+name: Build and deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Required for the deploy step to publish to Pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Installs the Emscripten compiler on GitHub's machine.
+      - uses: emscripten-core/setup-emsdk@v16
+
+      # Compiles the C++ with no source changes.
+      #   --shell-file   wraps the program in our terminal page
+      #   INVOKE_RUN=0   main() waits for the Run button
+      #   EXIT_RUNTIME=1 flushes the last cout line, which has no newline
+      #   callMain       lets the page start the program
+      - name: Compile the C++ to WebAssembly
+        run: |
+          mkdir -p site
+          emcc fantasy-football.cpp -o site/index.html \
+            --shell-file shell.html \
+            -O2 \
+            -sINVOKE_RUN=0 \
+            -sEXIT_RUNTIME=1 \
+            -sFORCE_FILESYSTEM=1 \
+            -sEXPORTED_RUNTIME_METHODS=callMain
+
+      # So the "Read the source" link has something to open.
+      - name: Publish a readable copy of the source
+        run: cp fantasy-football.cpp site/fantasy-football.cpp.txt
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
