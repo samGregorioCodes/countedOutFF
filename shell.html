@@ -27,14 +27,325 @@
 
   main { max-width: 46rem; margin: 0 auto; }
 
-  h1 {
-    font-size: 1.1rem;
-    font-weight: 400;
-    color: var(--green);
-    margin: 0 0 .25rem;
-  }
+  h1 { font-size: 1.1rem; font-weight: 400; color: var(--green); margin: 0 0 .25rem; }
   h1::before { content: '$ ./'; color: var(--dim); }
 
+  .hint { color: var(--dim); margin: 0 0 1.75rem; font-size: .85rem; }
+
+  /* Each group of questions the program asks in a row. */
+  fieldset {
+    border: 1px solid var(--edge);
+    background: var(--panel);
+    margin: 0 0 1rem;
+    padding: .9rem 1rem 1rem;
+  }
+  legend { color: var(--green); font-size: .8rem; padding: 0 .4rem; }
+
+  .field {
+    display: flex;
+    align-items: baseline;
+    gap: .6rem;
+    padding: .2rem 0;
+  }
+
+  /* The number matches the order the program reads its answers. */
+  .num {
+    color: var(--dim);
+    font-size: .75rem;
+    width: 1.6rem;
+    flex: none;
+    text-align: right;
+  }
+
+  .field label {
+    color: var(--text);
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: .85rem;
+  }
+
+  .field input {
+    flex: none;
+    width: 12rem;
+    background: #000;
+    border: 1px solid var(--edge);
+    color: var(--amber);
+    font: inherit;
+    font-size: .85rem;
+    padding: .3rem .5rem;
+  }
+  .field input[type="number"] { width: 6rem; }
+  .field input:focus { outline: 1px solid var(--green); border-color: var(--green); }
+
+  .row { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; margin-top: 1.25rem; }
+
+  button {
+    background: var(--panel);
+    border: 1px solid var(--green);
+    color: var(--green);
+    font: inherit;
+    padding: .5rem 1.1rem;
+    cursor: pointer;
+  }
+  button:hover:not(:disabled) { background: var(--green); color: var(--bg); }
+  button:disabled { border-color: var(--edge); color: var(--dim); cursor: default; }
+  button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+
+  #status { color: var(--dim); font-size: .85rem; }
+
+  #output {
+    margin: 1.5rem 0 0;
+    padding: 1rem;
+    background: #000;
+    border: 1px solid var(--edge);
+    border-left: 3px solid var(--green);
+    white-space: pre-wrap;
+    word-break: break-word;
+    min-height: 4rem;
+  }
+  #output .echo { color: var(--amber); }
+
+  footer { margin-top: 2rem; font-size: .8rem; color: var(--dim); }
+  a { color: var(--green); }
+
+  @media (max-width: 34rem) {
+    .field { flex-wrap: wrap; }
+    .field input, .field input[type="number"] { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <h1>fantasy-football</h1>
+  <p class="hint">Compiled from C++ to WebAssembly. Runs in your browser.</p>
+
+  <div id="form"></div>
+
+  <div class="row">
+    <button id="run" disabled>Run program</button>
+    <button id="again" hidden>Run again</button>
+    <span id="status">Loading the program...</span>
+  </div>
+
+  <pre id="output">Output will appear here.</pre>
+
+  <footer>
+    <a href="fantasy-football.cpp.txt">Read the source</a>
+  </footer>
+
+</main>
+
+<script>
+(function () {
+
+  // ==================================================================
+  // THIS LIST IS THE ONLY THING TIED TO THE C++.
+  //
+  // One entry per cin, in the exact order main() reads them. The label
+  // is the matching cout prompt. Add, remove or reorder a cin in the
+  // C++ and you must make the same change here, in the same place.
+  //
+  //   group  starts a new titled box (optional)
+  //   label  what the user reads
+  //   type   'text' or 'number'
+  //   value  what the field starts out holding
+  // ==================================================================
+  var FIELDS = [
+    { group: 'Teams' },
+    { label: 'Team One Name',            type: 'text',   value: 'Miami Manatees' },
+    { label: 'Team Two Name',            type: 'text',   value: 'Orlando Ospreys' },
+
+    { group: 'Team One Roster' },
+    { label: 'Team One QB Name',         type: 'text',   value: 'Jaylen Reeves' },
+    { label: 'Team One WR Name',         type: 'text',   value: 'Andre Mills' },
+    { label: 'Team One RB Name',         type: 'text',   value: 'Marcus Hale' },
+    { label: 'Team One TE Name',         type: 'text',   value: 'Nico Barrett' },
+
+    { group: 'Team Two Roster' },
+    { label: 'Team Two QB Name',         type: 'text',   value: 'Tomas Okafor' },
+    { label: 'Team Two WR Name',         type: 'text',   value: 'Cody Vance' },
+    { label: 'Team Two RB Name',         type: 'text',   value: 'Devin Pruitt' },
+    { label: 'Team Two TE Name',         type: 'text',   value: 'Sam Whitlock' },
+
+    { group: 'Quarterbacks' },
+    { label: 'Team One QB Yards',        type: 'number', value: '275' },
+    { label: 'Team One QB Touchdowns',   type: 'number', value: '2' },
+    { label: 'Team Two QB Yards',        type: 'number', value: '310' },
+    { label: 'Team Two QB Touchdowns',   type: 'number', value: '1' },
+
+    { group: 'Wide Receivers' },
+    { label: 'Team One WR Yards',        type: 'number', value: '88' },
+    { label: 'Team One WR Touchdowns',   type: 'number', value: '1' },
+    { label: 'Team Two WR Yards',        type: 'number', value: '102' },
+    { label: 'Team Two WR Touchdowns',   type: 'number', value: '0' },
+
+    { group: 'Running Backs' },
+    { label: 'Team One RB Yards',        type: 'number', value: '95' },
+    { label: 'Team One RB Touchdowns',   type: 'number', value: '1' },
+    { label: 'Team Two RB Yards',        type: 'number', value: '60' },
+    { label: 'Team Two RB Touchdowns',   type: 'number', value: '1' },
+
+    { group: 'Tight Ends' },
+    { label: 'Team One TE Yards',        type: 'number', value: '44' },
+    { label: 'Team One TE Touchdowns',   type: 'number', value: '0' },
+    { label: 'Team Two TE Yards',        type: 'number', value: '51' },
+    { label: 'Team Two TE Touchdowns',   type: 'number', value: '1' }
+  ];
+
+  var form   = document.getElementById('form');
+  var runBtn = document.getElementById('run');
+  var again  = document.getElementById('again');
+  var status = document.getElementById('status');
+  var output = document.getElementById('output');
+
+  // Build the fields from the list, so the page can never drift out of
+  // order with the answers it sends.
+  var inputs = [];
+  var box = null;
+
+  FIELDS.forEach(function (entry) {
+    if (entry.group) {
+      box = document.createElement('fieldset');
+      var legend = document.createElement('legend');
+      legend.textContent = entry.group;
+      box.appendChild(legend);
+      form.appendChild(box);
+      return;
+    }
+
+    var id = 'f' + inputs.length;
+
+    var row = document.createElement('div');
+    row.className = 'field';
+
+    var num = document.createElement('span');
+    num.className = 'num';
+    num.textContent = inputs.length + 1;
+
+    var label = document.createElement('label');
+    label.setAttribute('for', id);
+    label.textContent = entry.label;
+
+    var input = document.createElement('input');
+    input.id = id;
+    input.type = entry.type;
+    input.value = entry.value;
+    if (entry.type === 'number') { input.min = '0'; input.step = '1'; }
+    if (entry.type === 'text') { input.autocapitalize = 'words'; }
+
+    row.appendChild(num);
+    row.appendChild(label);
+    row.appendChild(input);
+    (box || form).appendChild(row);
+
+    inputs.push({ el: input, type: entry.type });
+  });
+
+  // Read every field, top to bottom. That order is the program's order.
+  function collect() {
+    return inputs.map(function (item) {
+      var raw = item.el.value.trim();
+      if (item.type === 'number') {
+        var n = parseInt(raw, 10);
+        return String(Number.isFinite(n) && n > 0 ? n : 0);
+      }
+      return raw || '(unnamed)';
+    });
+  }
+
+  var queue = '';     // every answer as one string of characters
+  var cursor = 0;     // how far the program has read
+  var answers = [];   // the same answers as a list, for the transcript
+  var printed = [];   // whole lines the program has written
+
+  // Module has to exist before the compiled code loads below.
+  window.Module = {
+    noInitialRun: true,
+
+    // Called once per character the program reads. null means end of input.
+    stdin: function () {
+      return cursor < queue.length ? queue.charCodeAt(cursor++) : null;
+    },
+
+    print: function (line) { printed.push(line); },
+    printErr: function (line) { console.warn('[stderr]', line); },
+
+    onRuntimeInitialized: function () {
+      runBtn.disabled = false;
+      status.textContent = 'Ready.';
+      output.textContent = 'Press Run program.';
+    }
+  };
+
+  // The program prints its prompts without newlines, so several arrive
+  // glued into one line. Each ends with ": ", which is enough to split
+  // them apart and slot each answer back in where it was typed.
+  function transcript() {
+    var frag = document.createDocumentFragment();
+    var next = 0;
+
+    printed.forEach(function (line) {
+      if (line.indexOf('Enter ') === -1) {
+        frag.appendChild(document.createTextNode(line + '\n'));
+        return;
+      }
+
+      line.split(/(?<=:\s)/).forEach(function (prompt) {
+        if (!prompt.trim()) return;
+        frag.appendChild(document.createTextNode(prompt));
+
+        if (next < answers.length) {
+          var echo = document.createElement('span');
+          echo.className = 'echo';
+          echo.textContent = answers[next++];
+          frag.appendChild(echo);
+        }
+        frag.appendChild(document.createTextNode('\n'));
+      });
+    });
+
+    output.textContent = '';
+    output.appendChild(frag);
+  }
+
+  runBtn.addEventListener('click', function () {
+    answers = collect();
+    queue = answers.join('\n') + '\n';
+    cursor = 0;
+    printed = [];
+
+    runBtn.disabled = true;
+    status.textContent = 'Running...';
+
+    try {
+      Module.callMain([]);
+    } catch (err) {
+      // A normal exit throws ExitStatus. Anything else is a real fault.
+      if (!err || err.name !== 'ExitStatus') {
+        output.textContent = 'The program stopped early. See the browser console.';
+        console.error(err);
+        status.textContent = 'Error.';
+        again.hidden = false;
+        return;
+      }
+    }
+
+    transcript();
+
+    // main() can only run once per page load, so a rerun means a reload.
+    status.textContent = 'Finished.';
+    again.hidden = false;
+  });
+
+  again.addEventListener('click', function () { location.reload(); });
+})();
+</script>
+
+{{{ SCRIPT }}}
+
+</body>
+</html>
   .hint { color: var(--dim); margin: 0 0 1.5rem; font-size: .85rem; }
 
   label {
