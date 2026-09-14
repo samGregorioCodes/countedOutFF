@@ -91,9 +91,9 @@
   button:disabled { border-color: var(--edge); color: var(--dim); cursor: default; }
   button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 
-  #status { color: var(--dim); font-size: .85rem; }
+  span#status { color: var(--dim); font-size: .85rem; }
 
-  #output {
+  pre#output {
     margin: 1.5rem 0 0;
     padding: 1rem;
     background: #000;
@@ -103,7 +103,7 @@
     word-break: break-word;
     min-height: 4rem;
   }
-  #output .echo { color: var(--amber); }
+  pre#output .echo { color: var(--amber); }
 
   footer { margin-top: 2rem; font-size: .8rem; color: var(--dim); }
   a { color: var(--green); }
@@ -314,220 +314,6 @@
     queue = answers.join('\n') + '\n';
     cursor = 0;
     printed = [];
-
-    runBtn.disabled = true;
-    status.textContent = 'Running...';
-
-    try {
-      Module.callMain([]);
-    } catch (err) {
-      // A normal exit throws ExitStatus. Anything else is a real fault.
-      if (!err || err.name !== 'ExitStatus') {
-        output.textContent = 'The program stopped early. See the browser console.';
-        console.error(err);
-        status.textContent = 'Error.';
-        again.hidden = false;
-        return;
-      }
-    }
-
-    transcript();
-
-    // main() can only run once per page load, so a rerun means a reload.
-    status.textContent = 'Finished.';
-    again.hidden = false;
-  });
-
-  again.addEventListener('click', function () { location.reload(); });
-})();
-</script>
-
-{{{ SCRIPT }}}
-
-</body>
-</html>
-  .hint { color: var(--dim); margin: 0 0 1.5rem; font-size: .85rem; }
-
-  label {
-    display: block;
-    color: var(--dim);
-    font-size: .8rem;
-    margin-bottom: .4rem;
-  }
-
-  textarea {
-    width: 100%;
-    min-height: 16rem;
-    resize: vertical;
-    background: var(--panel);
-    border: 1px solid var(--edge);
-    color: var(--text);
-    font: inherit;
-    padding: .75rem;
-    tab-size: 2;
-  }
-  textarea:focus { outline: 1px solid var(--green); }
-
-  details {
-    margin: .6rem 0 1rem;
-    color: var(--dim);
-    font-size: .8rem;
-  }
-  summary { cursor: pointer; }
-  details ol { margin: .5rem 0 0; padding-left: 2.2rem; }
-
-  .row { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
-
-  button {
-    background: var(--panel);
-    border: 1px solid var(--green);
-    color: var(--green);
-    font: inherit;
-    padding: .5rem 1.1rem;
-    cursor: pointer;
-  }
-  button:hover:not(:disabled) { background: var(--green); color: var(--bg); }
-  button:disabled { border-color: var(--edge); color: var(--dim); cursor: default; }
-  button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
-
-  #status { color: var(--dim); font-size: .85rem; }
-
-  #output {
-    margin: 1.5rem 0 0;
-    padding: 1rem;
-    background: #000;
-    border: 1px solid var(--edge);
-    border-left: 3px solid var(--green);
-    white-space: pre-wrap;
-    word-break: break-word;
-    min-height: 4rem;
-    color: var(--text);
-  }
-  #output .echo { color: var(--amber); }
-
-  footer { margin-top: 2rem; font-size: .8rem; color: var(--dim); }
-  a { color: var(--green); }
-</style>
-</head>
-<body>
-<main>
-
-  <h1>fantasy-football</h1>
-  <p class="hint">Compiled from C++ to WebAssembly. Runs in your browser.</p>
-
-  <label for="stdin">Standard input &mdash; one answer per line</label>
-  <textarea id="stdin" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
-
-  <details>
-    <summary>What order do the answers go in?</summary>
-    <ol>
-      <li>Team one name, team two name</li>
-      <li>Team one's QB, WR, RB, TE names</li>
-      <li>Team two's QB, WR, RB, TE names</li>
-      <li>Then, for each position in turn: team one yards, team one TDs, team two yards, team two TDs</li>
-    </ol>
-  </details>
-
-  <div class="row">
-    <button id="run" disabled>Run program</button>
-    <button id="again" hidden>Run again</button>
-    <span id="status">Loading the program...</span>
-  </div>
-
-  <pre id="output">Output will appear here.</pre>
-
-  <footer>
-    <a href="fantasy-football.cpp.txt">Read the source</a>
-  </footer>
-
-</main>
-
-<script>
-(function () {
-  var SAMPLE = [
-    'Miami Manatees', 'Orlando Ospreys',
-    'Jaylen Reeves', 'Andre Mills', 'Marcus Hale', 'Nico Barrett',
-    'Tomas Okafor', 'Cody Vance', 'Devin Pruitt', 'Sam Whitlock',
-    '275', '2', '310', '1',
-    '88', '1', '102', '0',
-    '95', '1', '60', '1',
-    '44', '0', '51', '1'
-  ].join('\n');
-
-  var box     = document.getElementById('stdin');
-  var runBtn  = document.getElementById('run');
-  var again   = document.getElementById('again');
-  var status  = document.getElementById('status');
-  var output  = document.getElementById('output');
-
-  // Keep whatever was typed across the reload that "Run again" does.
-  try { box.value = sessionStorage.getItem('stdin') || SAMPLE; }
-  catch (e) { box.value = SAMPLE; }
-
-  var queue = '';     // every answer, as one string of characters
-  var cursor = 0;     // how far the program has read
-  var answers = [];   // the same answers as a list, for the transcript
-  var printed = [];   // whole lines the program has written
-
-  // Module has to exist before the compiled code loads below.
-  window.Module = {
-    noInitialRun: true,
-
-    // Called once per character the program reads. null means end of input.
-    stdin: function () {
-      return cursor < queue.length ? queue.charCodeAt(cursor++) : null;
-    },
-
-    print: function (line) { printed.push(line); },
-    printErr: function (line) { console.warn('[stderr]', line); },
-
-    onRuntimeInitialized: function () {
-      runBtn.disabled = false;
-      status.textContent = 'Ready.';
-      output.textContent = 'Press Run program.';
-    }
-  };
-
-  // ------------------------------------------------------------------
-  // The program prints its prompts without newlines, so several of them
-  // arrive glued into one line. Each ends with ": ", which is enough to
-  // split them apart and slot each answer back in where it was typed.
-  // ------------------------------------------------------------------
-  function transcript() {
-    var frag = document.createDocumentFragment();
-    var next = 0;
-
-    printed.forEach(function (line) {
-      if (line.indexOf('Enter ') === -1) {
-        frag.appendChild(document.createTextNode(line + '\n'));
-        return;
-      }
-
-      line.split(/(?<=:\s)/).forEach(function (prompt) {
-        if (!prompt.trim()) return;
-        frag.appendChild(document.createTextNode(prompt));
-
-        if (next < answers.length) {
-          var echo = document.createElement('span');
-          echo.className = 'echo';
-          echo.textContent = answers[next++];
-          frag.appendChild(echo);
-        }
-        frag.appendChild(document.createTextNode('\n'));
-      });
-    });
-
-    output.textContent = '';
-    output.appendChild(frag);
-  }
-
-  runBtn.addEventListener('click', function () {
-    answers = box.value.replace(/\r/g, '').split('\n');
-    queue = answers.join('\n') + '\n';
-    cursor = 0;
-    printed = [];
-
-    try { sessionStorage.setItem('stdin', box.value); } catch (e) {}
 
     runBtn.disabled = true;
     status.textContent = 'Running...';
