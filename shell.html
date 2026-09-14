@@ -103,7 +103,7 @@
     word-break: break-word;
     min-height: 4rem;
   }
-  pre#output .echo { color: var(--amber); }
+
 
   footer { margin-top: 2rem; font-size: .8rem; color: var(--dim); }
   a { color: var(--green); }
@@ -278,35 +278,15 @@
     }
   };
 
-  // The program prints its prompts without newlines, so several arrive
-  // glued into one line. Each ends with ": ", which is enough to split
-  // them apart and slot each answer back in where it was typed.
+  // The program's prompts all contain "Enter ", and none of the output we
+  // want does. That one test separates the roster lines and the final
+  // verdict from the question noise.
   function transcript() {
-    var frag = document.createDocumentFragment();
-    var next = 0;
-
-    printed.forEach(function (line) {
-      if (line.indexOf('Enter ') === -1) {
-        frag.appendChild(document.createTextNode(line + '\n'));
-        return;
-      }
-
-      line.split(/(?<=:\s)/).forEach(function (prompt) {
-        if (!prompt.trim()) return;
-        frag.appendChild(document.createTextNode(prompt));
-
-        if (next < answers.length) {
-          var echo = document.createElement('span');
-          echo.className = 'echo';
-          echo.textContent = answers[next++];
-          frag.appendChild(echo);
-        }
-        frag.appendChild(document.createTextNode('\n'));
-      });
-    });
-
-    output.textContent = '';
-    output.appendChild(frag);
+    output.textContent = printed
+      .filter(function (line) { return line.indexOf('Enter ') === -1; })
+      .join('\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
   }
 
   runBtn.addEventListener('click', function () {
